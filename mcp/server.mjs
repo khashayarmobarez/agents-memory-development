@@ -17,10 +17,21 @@ const API = process.env.MEMORY_API ?? "http://localhost:3000/api";
 const log = (...args) => console.error("[memory-mcp]", ...args);
 
 async function callApi(path, init) {
-  const response = await fetch(`${API}${path}`, {
-    ...init,
-    headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
-  });
+  let response;
+  try {
+    response = await fetch(`${API}${path}`, {
+      ...init,
+      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+    });
+  } catch (cause) {
+    // A bare "fetch failed" tells an agent nothing. Name the actual problem and
+    // the fix, because the agent reading this is the one that has to act on it.
+    throw new Error(
+      `memory API unreachable at ${API}. Start it with: ` +
+        `cd ~/projects/memory-system/web && pnpm dev ` +
+        `(then confirm with: curl ${API}/health). Underlying error: ${cause.message}`,
+    );
+  }
 
   const body = await response.json().catch(() => ({}));
 

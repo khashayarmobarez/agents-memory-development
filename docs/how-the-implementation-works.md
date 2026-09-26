@@ -214,6 +214,31 @@ Expected after one approval and one rejection: 2 Proposals, 1 Decision, 1 Projec
 Or use Neo4j Browser at <http://localhost:7474> — `MATCH (n) RETURN n` renders the actual
 graph, which is more convincing than a row count.
 
+## The MCP layer
+
+`mcp/server.mjs` is a stdio MCP server that publishes the API as three agent
+tools, so any MCP-capable agent can use the memory system without custom code.
+
+The one architectural decision in it: **it speaks HTTP to the Next.js API, not
+Bolt to Neo4j.** The temptation is to import the driver and write Cypher directly,
+which would be marginally faster and much worse — the approval gate would then
+exist in two places, and "agents cannot write knowledge" would become a promise
+about code layout rather than a property of the system.
+
+Two protocol details that bite:
+
+**stdout is the JSON-RPC channel.** A single `console.log` corrupts it. Diagnostics
+go to `console.error`.
+
+**`server.tool(...)` is deprecated in SDK 1.30** in favour of
+`server.registerTool(name, { title, description, inputSchema }, cb)`, where
+`inputSchema` is a Zod raw shape. Descriptions matter more here than in normal
+code — they are the only thing the calling model sees when deciding whether to
+use a tool, so `propose` says explicitly that it does *not* store knowledge.
+
+Registration is `hermes mcp add` rather than hand-editing `config.yaml`, and tools
+appear as `mcp_<server>_<tool>` in a new session.
+
 ## Debugging reference
 
 | Symptom                                          | Cause                                                    | Fix                                              |
@@ -229,7 +254,7 @@ graph, which is more convincing than a row count.
 
 ## What's next
 
-- `getProjectContext(projectId)` — grouped decisions per project, for the third agent tool.
+- ~~`getProjectContext(projectId)`~~ — done, and wired into the MCP server.
 - Auth on the write endpoints, so "a human approves" is enforced and not merely assumed.
 - A full-text index to replace `CONTAINS`.
 - Deduplication on proposal create.

@@ -66,6 +66,7 @@ pnpm dev          # http://localhost:3000
 | POST   | `/api/memory/proposals/:id/approve`     | Promote to permanent memory      |
 | POST   | `/api/memory/proposals/:id/reject`      | Discard                          |
 | GET    | `/api/memory/search?q=&projectId=`      | Query **approved** memory only   |
+| GET    | `/api/memory/projects/:id/context`      | Everything approved about a project, grouped by type |
 
 Create a proposal:
 
@@ -113,7 +114,36 @@ app/
 docs/
   how-memory-works.md              the concepts
   how-the-implementation-works.md  the code
+mcp/
+  server.mjs    exposes search / propose / getProjectContext to agents
 ```
+
+## Agent tools (MCP)
+
+`mcp/server.mjs` is a stdio MCP server exposing three tools to any MCP-capable
+agent (Hermes, OpenCode, Claude Code):
+
+| Tool                | Wraps                                    |
+| ------------------- | ---------------------------------------- |
+| `search`            | `GET /api/memory/search`                 |
+| `propose`           | `POST /api/memory/proposals`             |
+| `getProjectContext` | `GET /api/memory/projects/:id/context`   |
+
+It calls the HTTP API instead of Neo4j directly, deliberately: if this process
+could create `Decision` nodes, there would be two routes into the graph and the
+approval invariant would stop being one thing.
+
+Registered with Hermes as:
+
+```bash
+hermes mcp add memory --command wsl.exe \\
+  --args -e /root/.nvm/versions/node/v24.21.0/bin/node \\
+  /root/projects/memory-system/web/mcp/server.mjs
+```
+
+It requires the app to be running, and it needs a **new Hermes session** before
+the tools appear (they show up as `mcp_memory_search`, `mcp_memory_propose`,
+`mcp_memory_getProjectContext`).
 
 ## Notes
 
@@ -131,4 +161,5 @@ them; the change gets recreated.
   tens of thousands — that's when a full-text index replaces it.
 - **`error.message` is returned to clients.** Information disclosure in production.
 - **No deduplication.** The same proposal can be created repeatedly.
-- **No `getProjectContext` yet** (planned Phase 4).
+- **`getProjectContext` starts with two queries, not one.** Fine per session, and
+  it would be one query if a nested `collect` were worth the unreadability.
