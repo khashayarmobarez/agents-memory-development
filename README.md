@@ -1,36 +1,134 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Memory System — web
 
-## Getting Started
+A memory layer for AI agents: agents **propose** memories, a human **approves** them,
+and only approved knowledge becomes queryable. Built on Next.js and Neo4j.
 
-First, run the development server:
+The point is not storage. The point is that an agent's confident guess never becomes
+established fact without a human saying so.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```
+Agent proposes memory
+        ↓
+    Proposal (pending)          ← staging, invisible to search
+        ↓
+   YOU APPROVE / REJECT
+        ↓
+   Decision + Source            ← permanent, linked into the graph
+        ↓
+     searchable memory
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Component      | Version   | Notes                                  |
+| -------------- | --------- | -------------------------------------- |
+| Next.js        | 16.3.6    | App Router, Turbopack                  |
+| React          | 19.2.8    |                                        |
+| TypeScript     | 5.9.x     | `strict`                               |
+| Tailwind CSS   | 4.3.x     |                                        |
+| neo4j-driver   | 6.2.0     |                                        |
+| Neo4j          | 2026.08.1 | via `../infrastructure/docker-compose.yml` |
+| Node           | 24.x LTS  |                                        |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Getting started
 
-## Learn More
+Neo4j must be running first:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+cd ../infrastructure && docker compose up -d
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Then create `web/.env.local`:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```env
+NEO4J_URI=neo4j://localhost:7687
+NEO4J_USERNAME=neo4j
+NEO4J_PASSWORD=<the password in ../infrastructure/docker-compose.yml>
+NEO4J_DATABASE=neo4j
+```
 
-## Deploy on Vercel
+Then:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+pnpm install
+pnpm dev          # http://localhost:3000
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`.env.local` is gitignored. `.env*` files are never written by tooling — create it by hand.
+
+## API
+
+| Method | Path                                    | Purpose                          |
+| ------ | --------------------------------------- | -------------------------------- |
+| GET    | `/api/health`                           | `RETURN 1` — proves DB connectivity |
+| POST   | `/api/memory/proposals`                 | Create a proposal (pending)      |
+| GET    | `/api/memory/proposals?status=pending`  | List proposals by status         |
+| POST   | `/api/memory/proposals/:id/approve`     | Promote to permanent memory      |
+| POST   | `/api/memory/proposals/:id/reject`      | Discard                          |
+| GET    | `/api/memory/search?q=&projectId=`      | Query **approved** memory only   |
+
+Create a proposal:
+
+```bash
+curl -X POST http://localhost:3000/api/memory/proposals \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "decision",
+    "title": "Use Next.js App Router",
+    "content": "The memory system will use the Next.js App Router.",
+    "projectId": "memory-system",
+    "source": { "type": "manual", "reference": "initial architecture discussion" }
+  }'
+```
+
+Approve it, then confirm it appears in `/api/memory/search`. Before approval it must not.
+
+## Data model
+
+```
+Workspace ──CONTAINS──> Project ──HAS_DECISION──> Decision ──SUPPORTED_BY──> Source
+
+Proposal                          (staging; status = pending | approved | rejected)
+```
+
+`Decision` nodes are created **only** by the approve endpoint. That is what makes
+unapproved memory unreachable from search — not a filter, the shape of the graph.
+
+Uniqueness constraints exist on `id` for `Workspace`, `Project`, `Decision`, `Source`.
+
+## Layout
+
+```
+lib/
+  neo4j.ts      driver singleton, session helper, query helper
+  memory.ts     domain operations (propose, approve, reject, search)
+  types.ts      domain shapes
+  http.ts       error → HTTP response mapping
+app/
+  api/health/route.ts
+  api/memory/proposals/route.ts
+  api/memory/proposals/[id]/approve/route.ts
+  api/memory/proposals/[id]/reject/route.ts
+  api/memory/search/route.ts
+docs/
+  how-memory-works.md              the concepts
+  how-the-implementation-works.md  the code
+```
+
+## Notes
+
+`AGENTS.md` and `CLAUDE.md` are generated and re-added by `next dev`. Don't hand-edit
+them; the change gets recreated.
+
+## Known limitations
+
+- **No auth.** Anything reaching `localhost:3000` can approve memory.
+- **Concurrent approval is not defence-in-depth.** Sequential double-approval is a
+  clean 404; two truly simultaneous approvals could both create a Decision, because
+  read-committed isolation doesn't re-evaluate `WHERE status = 'pending'` after a lock
+  wait. Fix with a uniqueness constraint or an explicit node lock if it matters.
+- **Search uses `CONTAINS`**, a full label scan. Fine at hundreds of Decisions, wrong at
+  tens of thousands — that's when a full-text index replaces it.
+- **`error.message` is returned to clients.** Information disclosure in production.
+- **No deduplication.** The same proposal can be created repeatedly.
+- **No `getProjectContext` yet** (planned Phase 4).
