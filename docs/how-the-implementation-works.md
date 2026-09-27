@@ -239,6 +239,33 @@ use a tool, so `propose` says explicitly that it does *not* store knowledge.
 Registration is `hermes mcp add` rather than hand-editing `config.yaml`, and tools
 appear as `mcp_<server>_<tool>` in a new session.
 
+## The approval page
+
+`app/memory/` is the human side of the gate: a queue of pending proposals with Approve
+and Reject buttons. Two files, split by who does what.
+
+`page.tsx` is a server component and reads the queue through `listProposals()` — the same
+function `GET /api/memory/proposals` calls. Going in-process rather than fetching its own
+API is right here because **a read protects no invariant**; the "exactly one entry point"
+rule is about writes. It also avoids a self-HTTP hop and the `force-dynamic` surprises that
+come with calling your own route from a server component.
+
+`proposal-queue.tsx` is a client component and does the writes over `fetch` to the public
+API. That asymmetry is the point: the UI is a client of the same interface opencode uses,
+so it can never do more than any other client, and atomic approval keeps exactly one door.
+Reads may go direct; writes may not.
+
+After a successful action it drops the card from local state for an instant response, then
+calls `router.refresh()` so the server-rendered counts and the recently-approved list catch
+up. Two traps are baked into the code:
+
+**Do not format dates with `toLocaleString()`.** A client component still renders on the
+server first, and a locale-dependent format can differ between Node and the browser, giving
+a hydration mismatch. `formatUtc()` slices the ISO string instead.
+
+**`force-dynamic` is required on the page.** A cached queue would show proposals that are no
+longer pending, and every button would 404.
+
 ## Debugging reference
 
 | Symptom                                          | Cause                                                    | Fix                                              |
@@ -251,10 +278,13 @@ appear as `mcp_<server>_<tool>` in a new session.
 | Route fails only in production builds             | Static evaluation caching a DB read                       | `export const dynamic = "force-dynamic"`         |
 | Integers arrive as objects, not numbers           | 64-bit lossless integers by default                       | `toNumber()` at the boundary                     |
 | Random `503`s under load                          | Pool exhausted by leaked sessions                         | Always close sessions — use `withSession`        |
+| `Source` orphaned after deleting a `Decision` | Relationship pattern drawn backwards | The edge is `(d)-[:SUPPORTED_BY]->(s)`; `(d)<-[:SUPPORTED_BY]-(s)` matches nothing |
+| Hydration mismatch on a rendered date | `toLocaleString()` in a component that also SSRs | Use a fixed format (`iso.slice(0, 16)`) |
 
 ## What's next
 
 - ~~`getProjectContext(projectId)`~~ — done, and wired into the MCP server.
+- ~~An approval UI~~ — done, at `/memory`.
 - Auth on the write endpoints, so "a human approves" is enforced and not merely assumed.
 - A full-text index to replace `CONTAINS`.
 - Deduplication on proposal create.

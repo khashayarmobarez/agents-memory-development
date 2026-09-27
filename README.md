@@ -84,6 +84,31 @@ curl -X POST http://localhost:3000/api/memory/proposals \
 
 Approve it, then confirm it appears in `/api/memory/search`. Before approval it must not.
 
+## Reviewing proposals
+
+Humans approve at **http://localhost:3000/memory** — a queue of everything pending, each
+card showing the title, the full content, and which files or conversation it came from.
+Approve promotes it to a Decision; Reject discards it. Neither is undoable from the page.
+
+Two files: `page.tsx` reads the queue server-side, straight to the same domain functions
+the API routes call — a read protects no invariant, so a self-HTTP hop would buy nothing.
+`proposal-queue.tsx` does the writes by `POST`ing to the public API. That is deliberate:
+the approval path keeps exactly one entry point, and this page is no more privileged than
+opencode or Hermes.
+
+With no browser to hand, the same thing over `curl`:
+
+```bash
+curl -s "http://localhost:3000/api/memory/proposals?status=pending"
+curl -s -X POST "http://localhost:3000/api/memory/proposals/<id>/approve"
+curl -s -X POST "http://localhost:3000/api/memory/proposals/<id>/reject"
+```
+
+**Never approve by editing the graph in the Neo4j Browser.** Approval is one atomic
+statement that creates the `Decision`, its `Source`, and the `HAS_DECISION` edge together.
+Done by hand you get a Decision that search can never reach — and if you delete the
+Decision afterwards, an orphaned `Source` that nothing points to.
+
 ## Data model
 
 ```
@@ -106,6 +131,8 @@ lib/
   types.ts      domain shapes
   http.ts       error → HTTP response mapping
 app/
+  memory/page.tsx                 the approval queue (server component)
+  memory/proposal-queue.tsx       approve / reject buttons (client component)
   api/health/route.ts
   api/memory/proposals/route.ts
   api/memory/proposals/[id]/approve/route.ts
