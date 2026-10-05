@@ -65,6 +65,7 @@ pnpm dev          # http://localhost:3000
 | GET    | `/api/memory/proposals?status=pending`  | List proposals by status         |
 | POST   | `/api/memory/proposals/:id/approve`     | Promote to permanent memory      |
 | POST   | `/api/memory/proposals/:id/reject`      | Discard                          |
+| POST   | `/api/memory/proposals/:id/delete`      | Hard-delete a decided proposal, with its Decision and Source if approved |
 | GET    | `/api/memory/search?q=&projectId=`      | Query **approved** memory only   |
 | GET    | `/api/memory/projects/:id/context`      | Everything approved about a project, grouped by type |
 
@@ -96,12 +97,19 @@ the API routes call — a read protects no invariant, so a self-HTTP hop would b
 the approval path keeps exactly one entry point, and this page is no more privileged than
 opencode or Hermes.
 
+The desk is tabbed (`/memory?tab=pending|approved|rejected`) and has a disposal room at
+**http://localhost:3000/memory/manage**: search the decided records, select, and delete
+for good. Deletion is a hard delete — the Proposal goes, and with an approved one its
+Decision and Source go too, in one transaction. Pending proposals cannot be deleted;
+approve or reject them first.
+
 With no browser to hand, the same thing over `curl`:
 
 ```bash
 curl -s "http://localhost:3000/api/memory/proposals?status=pending"
 curl -s -X POST "http://localhost:3000/api/memory/proposals/<id>/approve"
 curl -s -X POST "http://localhost:3000/api/memory/proposals/<id>/reject"
+curl -s -X POST "http://localhost:3000/api/memory/proposals/<id>/delete"
 ```
 
 **Never approve by editing the graph in the Neo4j Browser.** Approval is one atomic
@@ -131,8 +139,12 @@ lib/
   types.ts      domain shapes
   http.ts       error → HTTP response mapping
 app/
-  memory/page.tsx                 the approval queue (server component)
+  memory/page.tsx                 the approval desk, status tabs (server component)
   memory/proposal-queue.tsx       approve / reject buttons (client component)
+  memory/decided-list.tsx         read-only approved / rejected cards
+  memory/presentation.ts          shared type-chip, stamp-mark and date helpers
+  memory/manage/page.tsx          the disposal room (server component)
+  memory/manage/manage-list.tsx   search, select, delete (client component)
   api/health/route.ts
   api/memory/proposals/route.ts
   api/memory/proposals/[id]/approve/route.ts
@@ -187,6 +199,7 @@ them; the change gets recreated.
 - **Search uses `CONTAINS`**, a full label scan. Fine at hundreds of Decisions, wrong at
   tens of thousands — that's when a full-text index replaces it.
 - **`error.message` is returned to clients.** Information disclosure in production.
-- **No deduplication.** The same proposal can be created repeatedly.
+- **No deduplication.** The same proposal can be created repeatedly; duplicates are pruned
+  by hand from the disposal room. Deletion is permanent — no undo, no audit trail.
 - **`getProjectContext` starts with two queries, not one.** Fine per session, and
   it would be one query if a nested `collect` were worth the unreadability.

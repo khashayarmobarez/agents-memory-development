@@ -5,13 +5,9 @@ import { useState } from "react";
 
 import type { Proposal } from "@/lib/types";
 
-type Decision = "approve" | "reject";
+import { TYPE_TABS, formatUtc } from "./presentation";
 
-const TYPE_TABS: Record<Proposal["type"], string> = {
-  decision: "border-ink bg-ink text-paper-raised",
-  convention: "border-ink text-ink",
-  note: "border-rule text-ink-faint",
-};
+type Decision = "approve" | "reject";
 
 const STAMP_MARK: Record<Decision, { text: string; className: string }> = {
   approve: {
@@ -23,12 +19,6 @@ const STAMP_MARK: Record<Decision, { text: string; className: string }> = {
     className: "border-stamp-red text-stamp-red ring-stamp-red",
   },
 };
-
-// Deliberately not toLocaleString(): this component renders on the server too,
-// and a locale-dependent format risks a hydration mismatch.
-function formatUtc(iso: string): string {
-  return `${iso.slice(0, 16).replace("T", " ")} UTC`;
-}
 
 export default function ProposalQueue({ initial }: { initial: Proposal[] }) {
   const router = useRouter();

@@ -160,6 +160,37 @@ export async function rejectProposal(id: string): Promise<boolean> {
   return rows.length > 0;
 }
 
+/**
+ * Removes a decided proposal for good — and the Decision with its Source, if it
+ * was approved. One transaction, so the record can never be left half-erased:
+ * an orphaned Source, or a Proposal pointing at a dead Decision. Pending
+ * proposals are not deletable; decide them first.
+ */
+export async function deleteProposal(id: string): Promise<boolean> {
+  return withSession((session) =>
+    session.executeWrite(async (tx) => {
+      const found = await tx.run(
+        `MATCH (p:Proposal {id: $id})
+         WHERE p.status IN ['approved', 'rejected']
+         RETURN p.id AS id`,
+        { id },
+      );
+
+      if (found.records.length === 0) return false;
+
+      await tx.run(
+        `MATCH (p:Proposal {id: $id})
+         OPTIONAL MATCH (d:Decision {id: p.decisionId})
+         OPTIONAL MATCH (d)-[:SUPPORTED_BY]->(s:Source)
+         DETACH DELETE p, d, s`,
+        { id },
+      );
+
+      return true;
+    }),
+  );
+}
+
 export interface SearchOptions {
   q?: string;
   projectId?: string;
