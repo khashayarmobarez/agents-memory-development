@@ -20,7 +20,13 @@ const STAMP_MARK: Record<Decision, { text: string; className: string }> = {
   },
 };
 
-export default function ProposalQueue({ initial }: { initial: Proposal[] }) {
+export default function ProposalQueue({
+  initial,
+  targetTitles,
+}: {
+  initial: Proposal[];
+  targetTitles: Record<string, string>;
+}) {
   const router = useRouter();
   const [proposals, setProposals] = useState<Proposal[]>(initial);
   const [busy, setBusy] = useState<string | null>(null);
@@ -128,6 +134,15 @@ export default function ProposalQueue({ initial }: { initial: Proposal[] }) {
             <h2 className="mt-3.5 font-display text-xl font-semibold leading-snug">
               {proposal.title}
             </h2>
+
+            {proposal.type === "deletion" && (
+              <p className="mt-2 font-mono text-[11px] text-stamp-red">
+                deletes:{" "}
+                {proposal.targetId !== null
+                  ? (targetTitles[proposal.targetId] ?? proposal.targetId)
+                  : "unknown target"}
+              </p>
+            )}
 
             <button
               type="button"

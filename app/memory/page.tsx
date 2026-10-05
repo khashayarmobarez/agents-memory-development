@@ -1,9 +1,10 @@
 import Link from "next/link";
 
-import { listProposals } from "@/lib/memory";
+import { decisionTitles, listProposals } from "@/lib/memory";
 
 import DecidedList from "./decided-list";
 import ProposalQueue from "./proposal-queue";
+import SignOut from "./sign-out";
 
 // The queue is read at request time and must never be cached: a stale page would
 // show proposals that are no longer pending, and the buttons would 404.
@@ -43,6 +44,13 @@ export default async function MemoryPage({
     listProposals("rejected"),
   ]);
 
+  // Deletion requests name a target; the human should see its title before
+  // stamping. Pending targets still exist, so they resolve right here.
+  const targetIds = pending
+    .filter((proposal) => proposal.type === "deletion" && proposal.targetId !== null)
+    .map((proposal) => proposal.targetId as string);
+  const targetTitles = await decisionTitles(targetIds);
+
   // Tabs are URL state (?tab=), so every list is shareable and always fresh —
   // a stamp on one tab is a server render away on the next.
   const requested = (await searchParams).tab;
@@ -62,12 +70,15 @@ export default async function MemoryPage({
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint">
             Approval desk
           </p>
-          <Link
-            href="/"
-            className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint transition-colors hover:text-ink"
-          >
-            &larr; Front desk
-          </Link>
+          <div className="flex items-baseline gap-4">
+            <Link
+              href="/"
+              className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint transition-colors hover:text-ink"
+            >
+              &larr; Front desk
+            </Link>
+            <SignOut />
+          </div>
         </div>
 
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">
@@ -117,7 +128,7 @@ export default async function MemoryPage({
 
       <div className="mt-8">
         {tab === "pending" ? (
-          <ProposalQueue initial={pending} />
+          <ProposalQueue initial={pending} targetTitles={targetTitles} />
         ) : (
           <DecidedList
             status={tab}

@@ -21,10 +21,10 @@ const DESTINATIONS: Destination[] = [
     code: "A/01",
   },
   {
-    href: "http://localhost:7474",
-    label: "Neo4j Browser",
+    href: "https://console.neo4j.io",
+    label: "Aura console",
     detail:
-      "Inspect the graph directly. Read-only in practice — approving from here breaks the invariant.",
+      "The graph behind this desk, in Neo4j's cloud. Read-only in practice — approving by hand breaks the invariant.",
     code: "A/02",
     external: true,
     newTab: true,

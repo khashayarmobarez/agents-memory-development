@@ -1,4 +1,5 @@
 export type MemoryType = "decision" | "convention" | "note";
+export type ProposalType = MemoryType | "deletion";
 export type ProposalStatus = "pending" | "approved" | "rejected";
 
 export interface MemorySource {
@@ -7,23 +8,28 @@ export interface MemorySource {
 }
 
 export interface ProposalInput {
-  type: MemoryType;
+  type: ProposalType;
   title: string;
   content: string;
   projectId: string;
   workspaceId: string;
+  /** The Decision a deletion proposal targets; null for memory proposals. */
+  targetId: string | null;
   source: MemorySource;
 }
 
 export interface Proposal {
   id: string;
-  type: MemoryType;
+  type: ProposalType;
   title: string;
   content: string;
   projectId: string;
   workspaceId: string;
   sourceType: string;
   sourceReference: string;
+  targetId: string | null;
+  /** Snapshot of the target's title, taken when a deletion is approved. */
+  targetTitle: string | null;
   status: ProposalStatus;
   createdAt: string;
 }
@@ -39,7 +45,8 @@ export interface Memory {
 
 export interface ApprovalResult {
   proposalId: string;
-  decisionId: string;
+  /** null when the approval was a deletion — there is no new Decision. */
+  decisionId: string | null;
   projectId: string;
 }
 

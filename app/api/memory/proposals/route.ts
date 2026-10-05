@@ -8,6 +8,12 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const STATUSES: ProposalStatus[] = ["pending", "approved", "rejected"];
+const PROPOSAL_TYPES: ProposalInput["type"][] = [
+  "decision",
+  "convention",
+  "note",
+  "deletion",
+];
 
 type Parsed =
   | { ok: true; value: ProposalInput }
@@ -32,6 +38,15 @@ function parseProposal(body: unknown): Parsed {
   const title = requireString("title");
   const content = requireString("content");
   const projectId = requireString("projectId");
+
+  if (type !== "" && !PROPOSAL_TYPES.includes(type as ProposalInput["type"])) {
+    errors.push(`type must be one of: ${PROPOSAL_TYPES.join(", ")}`);
+  }
+
+  let targetId: string | null = null;
+  if (type === "deletion") {
+    targetId = requireString("targetId");
+  }
 
   const workspaceId =
     typeof b.workspaceId === "string" && b.workspaceId.trim() !== ""
@@ -63,6 +78,7 @@ function parseProposal(body: unknown): Parsed {
       content,
       projectId,
       workspaceId,
+      targetId,
       source: { type: sourceType, reference: sourceReference },
     },
   };

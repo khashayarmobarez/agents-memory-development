@@ -70,6 +70,13 @@ export default function DecidedList({
             {proposal.title}
           </h2>
 
+          {proposal.type === "deletion" && (
+            <p className="mt-2 font-mono text-[11px] text-ink-faint">
+              {status === "approved" ? "deleted" : "targeted"}:{" "}
+              {proposal.targetTitle ?? proposal.targetId ?? "unknown target"}
+            </p>
+          )}
+
           <pre className="mt-3 max-h-64 overflow-auto border-l-2 border-rule bg-paper-deep p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-ink-soft">
             {proposal.content}
           </pre>

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { listProposals } from "@/lib/memory";
 
+import SignOut from "../sign-out";
 import ManageList from "./manage-list";
 
 // Deletion rescans the record, so the page must never serve a cached list.
@@ -25,12 +26,15 @@ export default async function ManagePage() {
           <p className="font-mono text-[11px] uppercase tracking-[0.3em] text-ink-faint">
             Disposal
           </p>
-          <Link
-            href="/memory"
-            className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint transition-colors hover:text-ink"
-          >
-            &larr; Approval desk
-          </Link>
+          <div className="flex items-baseline gap-4">
+            <Link
+              href="/memory"
+              className="font-mono text-[11px] uppercase tracking-[0.25em] text-ink-faint transition-colors hover:text-ink"
+            >
+              &larr; Approval desk
+            </Link>
+            <SignOut />
+          </div>
         </div>
 
         <h1 className="mt-4 font-display text-4xl font-semibold tracking-tight">

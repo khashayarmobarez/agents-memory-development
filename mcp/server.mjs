@@ -1,14 +1,21 @@
 #!/usr/bin/env node
 /**
- * MCP server exposing the memory system as three agent tools.
+ * MCP server exposing the memory system as agent tools.
  *
  * It talks HTTP to the Next.js API rather than to Neo4j directly, so the approval
  * gate stays in exactly one place. If this process could create Decision nodes,
  * there would be two ways into the graph and the invariant would stop being one.
  *
+ * Auth: the machine presents MEMORY_API_KEY (or ~/.memory-api-key) as a Bearer
+ * token. The key may propose and read — it can never approve, reject or delete.
+ *
  * stdout is the JSON-RPC channel. Never console.log here — a stray line corrupts
  * the protocol. Diagnostics go to stderr.
  */
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -16,12 +23,29 @@ import { z } from "zod";
 const API = process.env.MEMORY_API ?? "http://localhost:3000/api";
 const log = (...args) => console.error("[memory-mcp]", ...args);
 
+// Env first, key file second — the file fallback keeps every MCP client working
+// without threading env vars through each client's config.
+function apiKey() {
+  if (process.env.MEMORY_API_KEY) return process.env.MEMORY_API_KEY;
+  try {
+    return readFileSync(join(homedir(), ".memory-api-key"), "utf8").trim();
+  } catch {
+    return null;
+  }
+}
+
+const KEY = apiKey();
+
 async function callApi(path, init) {
   let response;
   try {
     response = await fetch(`${API}${path}`, {
       ...init,
-      headers: { "content-type": "application/json", ...(init?.headers ?? {}) },
+      headers: {
+        "content-type": "application/json",
+        ...(KEY ? { authorization: `Bearer ${KEY}` } : {}),
+        ...(init?.headers ?? {}),
+      },
     });
   } catch (cause) {
     // A bare "fetch failed" tells an agent nothing. Name the actual problem and
@@ -36,8 +60,12 @@ async function callApi(path, init) {
   const body = await response.json().catch(() => ({}));
 
   if (!response.ok) {
+    const hint =
+      response.status === 401
+        ? " The machine key is missing or wrong — set MEMORY_API_KEY (or write it to ~/.memory-api-key)."
+        : "";
     throw new Error(
-      `memory API responded ${response.status}: ${body.error ?? response.statusText}`,
+      `memory API responded ${response.status}: ${body.error ?? response.statusText}.${hint}`,
     );
   }
   return body;
@@ -119,6 +147,46 @@ server.registerTool(
 );
 
 server.registerTool(
+  "proposeDeletion",
+  {
+    title: "Propose deleting a memory",
+    description:
+      "Request deletion of an approved memory (a Decision). This deletes nothing — " +
+      "it queues a deletion request that a human approves or rejects. Get the " +
+      "targetId from a search result first. After calling this, tell the user the " +
+      "request is waiting on the approval desk.",
+    inputSchema: {
+      targetId: z.string().describe("Decision id from search results"),
+      reason: z.string().describe("Why this memory should be deleted"),
+      title: z
+        .string()
+        .optional()
+        .describe("The target memory's title, so the human sees what is at stake"),
+      projectId: z.string(),
+    },
+  },
+  async ({ targetId, reason, title, projectId }) => {
+    const body = await callApi("/memory/proposals", {
+      method: "POST",
+      body: JSON.stringify({
+        type: "deletion",
+        title: `Delete memory: ${title ?? targetId}`,
+        content: reason,
+        targetId,
+        projectId,
+        source: { type: "agent", reference: "deletion request" },
+      }),
+    });
+
+    return asText(
+      "Deletion request queued, pending human approval. Nothing is deleted until " +
+        "a human approves it.\n\n" +
+        JSON.stringify(body.proposal, null, 2),
+    );
+  },
+);
+
+server.registerTool(
   "getProjectContext",
   {
     title: "Get project context",
@@ -132,4 +200,4 @@ server.registerTool(
 );
 
 await server.connect(new StdioServerTransport());
-log(`connected; API at ${API}`);
+log(`connected; API at ${API}, machine key ${KEY ? "set" : "MISSING"}`);

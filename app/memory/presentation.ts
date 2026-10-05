@@ -3,11 +3,12 @@ import type { Proposal } from "@/lib/types";
 export type DecidedStatus = "approved" | "rejected";
 
 // Type chips read as index tabs: solid for decisions, outlined for conventions,
-// faint for notes. Shared by the pending queue and the decided lists.
+// faint for notes, red for deletion requests. Shared by the queue and the lists.
 export const TYPE_TABS: Record<Proposal["type"], string> = {
   decision: "border-ink bg-ink text-paper-raised",
   convention: "border-ink text-ink",
   note: "border-rule text-ink-faint",
+  deletion: "border-stamp-red bg-stamp-red text-paper-raised",
 };
 
 // Rotated mini stamps worn by decided records.
