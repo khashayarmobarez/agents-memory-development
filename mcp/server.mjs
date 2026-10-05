@@ -20,21 +20,21 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
-const API = process.env.MEMORY_API ?? "http://localhost:3000/api";
 const log = (...args) => console.error("[memory-mcp]", ...args);
 
-// Env first, key file second — the file fallback keeps every MCP client working
+// Env first, files second — the file fallbacks keep every MCP client working
 // without threading env vars through each client's config.
-function apiKey() {
-  if (process.env.MEMORY_API_KEY) return process.env.MEMORY_API_KEY;
+function fileValue(name) {
   try {
-    return readFileSync(join(homedir(), ".memory-api-key"), "utf8").trim();
+    return readFileSync(join(homedir(), name), "utf8").trim();
   } catch {
     return null;
   }
 }
 
-const KEY = apiKey();
+const API =
+  process.env.MEMORY_API ?? fileValue(".memory-api-url") ?? "http://localhost:3000/api";
+const KEY = process.env.MEMORY_API_KEY ?? fileValue(".memory-api-key");
 
 async function callApi(path, init) {
   let response;

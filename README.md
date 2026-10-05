@@ -227,9 +227,10 @@ could create `Decision` nodes, there would be two routes into the graph and the
 approval invariant would stop being one thing.
 
 With auth enabled, the server sends `Authorization: Bearer` from `MEMORY_API_KEY`
-(or the file `~/.memory-api-key` when the env var is unset), and `MEMORY_API` can
-point at the deployment — `MEMORY_API=https://<app>.vercel.app/api` — so agents keep
-working even when the local dev server is off.
+(or the file `~/.memory-api-key` when the env var is unset); `MEMORY_API` — or the
+file `~/.memory-api-url` — can point at the deployment
+(`https://<app>.vercel.app/api`), so agents keep working even when the local dev
+server is off.
 
 Registered with Hermes as:
 
