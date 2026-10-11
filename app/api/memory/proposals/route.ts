@@ -8,6 +8,11 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 const STATUSES: ProposalStatus[] = ["pending", "approved", "rejected"];
+// The three memory types plus deletion. `type` is a filing label, not a behavior:
+// all three are stored, gated and searched identically — it only groups
+// getProjectContext and styles the queue chip. File by purpose: decision = a
+// choice whose reasoning must survive; convention = a rule that binds future
+// work; note = descriptive context that will rot. See docs/how-memory-works.md.
 const PROPOSAL_TYPES: ProposalInput["type"][] = [
   "decision",
   "convention",

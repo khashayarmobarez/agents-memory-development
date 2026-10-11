@@ -114,7 +114,16 @@ server.registerTool(
       "queues a pending proposal that stays invisible to search until approved. " +
       "After calling this, tell the user the proposal is waiting for their approval.",
     inputSchema: {
-      type: z.enum(["decision", "convention", "note"]),
+      type: z
+        .enum(["decision", "convention", "note"])
+        .describe(
+          "decision = a choice made once whose reasoning must survive (the " +
+            "alternatives were real); convention = a standing rule that binds " +
+            "every future change in this project; note = descriptive context " +
+            "with no binding force, expected to go stale. The type only groups " +
+            "context and styles the chip — all three are stored and gated " +
+            "identically.",
+        ),
       title: z.string().describe("Short imperative summary"),
       content: z.string().describe("The memory itself, stated in full"),
       projectId: z.string(),
