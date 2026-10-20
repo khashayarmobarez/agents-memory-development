@@ -598,7 +598,7 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
       const sx = event.clientX - rect.left;
       const sy = event.clientY - rect.top;
 
-      const factor = Math.exp(-event.deltaY * 0.0012);
+      const factor = Math.exp(-event.deltaY * 0.0028);
       const k = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, view.transform.k * factor));
       const wx = sx / view.transform.k - view.transform.x;
       const wy = sy / view.transform.k - view.transform.y;
