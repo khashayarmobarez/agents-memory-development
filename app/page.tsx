@@ -21,11 +21,18 @@ const DESTINATIONS: Destination[] = [
     code: "A/01",
   },
   {
+    href: "/memory/bloom",
+    label: "Database bloom",
+    detail:
+      "The raw graph, drawn like Neo4j Bloom — every node, relationship and stored value. Read-only.",
+    code: "A/02",
+  },
+  {
     href: "https://console.neo4j.io",
     label: "Aura console",
     detail:
       "The graph behind this desk, in Neo4j's cloud. Read-only in practice — approving by hand breaks the invariant.",
-    code: "A/02",
+    code: "A/03",
     external: true,
     newTab: true,
   },
@@ -33,7 +40,7 @@ const DESTINATIONS: Destination[] = [
     href: "/api/health",
     label: "API health",
     detail: "Returns { ok: true } while the driver can reach Neo4j.",
-    code: "A/03",
+    code: "A/04",
     newTab: true,
   },
 ];

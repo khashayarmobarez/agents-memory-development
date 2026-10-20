@@ -113,6 +113,16 @@ export default async function MemoryPage({
               </Link>
             );
           })}
+
+          <Link
+            href="/memory/bloom"
+            className={`${TAB_BASE} ${TAB_INACTIVE} !border-ink/30 hover:!border-ink`}
+          >
+            <span aria-hidden className="mr-1.5 text-stamp-red">
+              &#9670;
+            </span>
+            Database bloom
+          </Link>
         </nav>
 
         <Link
