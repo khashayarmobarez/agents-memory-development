@@ -43,6 +43,12 @@ export interface Memory {
   approvedAt: string;
 }
 
+export interface Workspace {
+  id: string;
+  /** Human-facing name; null for workspaces created before naming existed. */
+  title: string | null;
+}
+
 export interface ApprovalResult {
   proposalId: string;
   /** null when the approval was a deletion — there is no new Decision. */

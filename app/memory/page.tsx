@@ -125,12 +125,20 @@ export default async function MemoryPage({
           </Link>
         </nav>
 
-        <Link
-          href="/memory/manage"
-          className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint transition-colors hover:text-ink"
-        >
-          Manage memories &rarr;
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link
+            href="/memory/workspaces"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint transition-colors hover:text-ink"
+          >
+            Workspaces &rarr;
+          </Link>
+          <Link
+            href="/memory/manage"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink-faint transition-colors hover:text-ink"
+          >
+            Manage memories &rarr;
+          </Link>
+        </div>
       </div>
 
       <div aria-hidden className="mt-3 border-t-2 border-ink" />

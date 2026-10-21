@@ -88,11 +88,13 @@ export async function getBloomGraph(): Promise<BloomGraph> {
     // Same pattern as getProjectContext — one session, one query at a time.
     const nodeRows = await session.run(
       `MATCH (n)
-       WITH n LIMIT ${NODE_LIMIT}
+       WITH n, labels(n)[0] AS label
+       ORDER BY label
+       WITH n, label
+       LIMIT ${NODE_LIMIT}
        RETURN elementId(n) AS id,
-              labels(n)[0] AS label,
-              properties(n) AS properties
-       ORDER BY labels(n)[0]`,
+              label,
+              properties(n) AS properties`,
     );
     const relationshipRows = await session.run(
       `MATCH ()-[r]->()

@@ -10,6 +10,7 @@ import type {
   Proposal,
   ProposalInput,
   ProposalStatus,
+  Workspace,
 } from "@/lib/types";
 
 const now = () => new Date().toISOString();
@@ -278,6 +279,43 @@ export async function searchMemory(options: SearchOptions = {}): Promise<Memory[
     { q: options.q ?? null, projectId: options.projectId ?? null },
     (record) => record.toObject() as Memory,
   );
+}
+
+/**
+ * Workspaces are the top of the graph: Workspace → Project → Decision. They only
+ * materialized as a side effect of approval, so naming them — and creating them
+ * outright — is a first-class operation the human can drive from the desk.
+ */
+export async function listWorkspaces(): Promise<Workspace[]> {
+  return query<Workspace>(
+    `MATCH (w:Workspace)
+     RETURN w.id AS id, w.title AS title
+     ORDER BY coalesce(w.title, w.id)`,
+  );
+}
+
+/** Idempotent: MERGE reuses an existing workspace and just (re)sets its name. */
+export async function createWorkspace(input: {
+  id: string;
+  title: string;
+}): Promise<Workspace> {
+  await query(
+    `MERGE (w:Workspace {id: $id})
+     SET w.title = $title`,
+    { id: input.id, title: input.title },
+  );
+  return { id: input.id, title: input.title };
+}
+
+export async function renameWorkspace(id: string, title: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `MATCH (w:Workspace {id: $id})
+     SET w.title = $title
+     RETURN w.id AS id`,
+    { id, title },
+    (record) => ({ id: record.get("id") as string }),
+  );
+  return rows.length > 0;
 }
 
 /**

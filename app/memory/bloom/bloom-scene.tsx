@@ -715,6 +715,18 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
     node: SceneNode | null;
     moved: number;
   } | null>(null);
+  // Every active pointer, keyed by pointerId, so a second finger can turn a
+  // drag into a pinch without losing the first.
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  // Pinch state, captured the moment the second finger lands.
+  const pinchRef = useRef<{
+    distance: number;
+    midX: number;
+    midY: number;
+    startK: number;
+    startX: number;
+    startY: number;
+  } | null>(null);
 
   const hitTest = useCallback((screenX: number, screenY: number): SceneNode | null => {
     const sim = simRef.current;
@@ -741,12 +753,67 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
     return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   };
 
+  // Zoom around the pinch midpoint and pan with it: the world point under the
+  // initial midpoint stays under the moving midpoint, and the scale follows the
+  // ratio of finger separation.
+  const applyPinch = () => {
+    const pinch = pinchRef.current;
+    if (!pinch) return;
+    const points = [...pointersRef.current.values()];
+    if (points.length < 2) return;
+    const [a, b] = points;
+    const dx = b.x - a.x;
+    const dy = b.y - a.y;
+    const distance = Math.hypot(dx, dy) || 1e-6;
+    const midX = (a.x + b.x) / 2;
+    const midY = (a.y + b.y) / 2;
+    const k = Math.min(
+      MAX_ZOOM,
+      Math.max(MIN_ZOOM, pinch.startK * (distance / pinch.distance)),
+    );
+    const wx = pinch.midX / pinch.startK - pinch.startX;
+    const wy = pinch.midY / pinch.startK - pinch.startY;
+    const view = viewRef.current;
+    view.transform.k = k;
+    view.transform.x = midX / k - wx;
+    view.transform.y = midY / k - wy;
+    draw();
+  };
+
   const onPointerDown = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const point = canvasPoint(event);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, point);
+
+    // A second finger lands: drop the single-pointer drag and begin a pinch.
+    if (pointersRef.current.size > 1) {
+      const drag = dragRef.current;
+      if (drag && drag.mode === "node" && drag.node) {
+        drag.node.fx = null;
+        drag.node.fy = null;
+        simRef.current?.alphaTarget(0);
+      }
+      dragRef.current = null;
+      if (pointersRef.current.size === 2) {
+        const [a, b] = [...pointersRef.current.values()];
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const view = viewRef.current;
+        pinchRef.current = {
+          distance: Math.hypot(dx, dy) || 1e-6,
+          midX: (a.x + b.x) / 2,
+          midY: (a.y + b.y) / 2,
+          startK: view.transform.k,
+          startX: view.transform.x,
+          startY: view.transform.y,
+        };
+      }
+      return;
+    }
+
     const view = viewRef.current;
     const node = hitTest(point.x, point.y);
 
-    event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.style.cursor = "grabbing";
 
     if (node) {
@@ -788,6 +855,14 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
 
   const onPointerMove = (event: React.PointerEvent<HTMLCanvasElement>) => {
     const point = canvasPoint(event);
+    if (pointersRef.current.has(event.pointerId)) {
+      pointersRef.current.set(event.pointerId, point);
+    }
+    if (pinchRef.current) {
+      applyPinch();
+      return;
+    }
+
     const drag = dragRef.current;
     const view = viewRef.current;
 
@@ -815,6 +890,9 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
   };
 
   const onPointerUp = (event: React.PointerEvent<HTMLCanvasElement>) => {
+    pointersRef.current.delete(event.pointerId);
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
 
@@ -1020,7 +1098,7 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
         <div
           ref={chamberRef}
           role="application"
-          aria-label="Database graph — drag to pan, roll to zoom, click a node to inspect it"
+          aria-label="Database graph — drag to pan, roll or pinch to zoom, click a node to inspect it"
           tabIndex={0}
           onKeyDown={onKeyDown}
           className="relative h-[68vh] min-h-[440px] flex-1 overflow-hidden border-2 border-ink bg-paper-deep shadow-[8px_8px_0_0_var(--rule)] outline-none focus-visible:ring-2 focus-visible:ring-stamp-red"
@@ -1073,7 +1151,7 @@ export default function BloomScene({ initial }: { initial: BloomGraph }) {
           </div>
 
           <p className="pointer-events-none absolute bottom-3 right-3 hidden font-mono text-[10px] text-ink-faint/70 md:block">
-            drag &middot; pan&ensp;roll &middot; zoom&ensp;click &middot; inspect&ensp;double-click &middot; focus
+            drag &middot; pan&ensp;roll / pinch &middot; zoom&ensp;click &middot; inspect&ensp;double-click &middot; focus
           </p>
         </div>
 
