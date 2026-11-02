@@ -9,3 +9,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 <!-- END:nextjs-agent-rules -->
 
 
+
+## Memory
+
+At session start call memory_getProjectContext with projectId=memory-system.
+File proposals with the same projectId.
