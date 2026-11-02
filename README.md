@@ -205,6 +205,7 @@ app/
 docs/
   how-memory-works.md              the concepts
   how-the-implementation-works.md  the code
+  connecting-to-the-mcp-server.md  connect claude.ai, Claude Code, opencode, Hermes
 mcp/
   server.mjs    exposes search / propose / getProjectContext to agents
 scripts/
