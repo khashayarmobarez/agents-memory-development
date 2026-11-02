@@ -3,9 +3,23 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isKeyRequest, isSessionRequest } from "@/lib/app-auth";
 
 // The login handshake and the health probe (the Vercel cron pings it) are the
-// only public doors. Everything else — pages and API alike — needs a session
-// cookie or, for the agent endpoints, the machine key.
-const PUBLIC_PREFIXES = ["/api/health", "/api/auth"];
+// only unauthenticated doors, plus the OAuth surface for remote MCP clients.
+// Everything else — pages and API alike — needs a session cookie or, for the
+// agent endpoints, the machine key.
+//
+// The OAuth routes are open here because each guards itself: discovery and
+// registration grant nothing, /oauth/authorize and /api/oauth/decide require the
+// owner's session (the page redirects to /login itself, since the redirect below
+// would drop its query string), /api/oauth/token needs a valid code or refresh
+// token, and /api/mcp needs an access token.
+const PUBLIC_PREFIXES = [
+  "/api/health",
+  "/api/auth",
+  "/api/oauth",
+  "/api/mcp",
+  "/.well-known",
+  "/oauth/authorize",
+];
 
 // What the machine key may do: file proposals (including deletion requests)
 // and read. Deciding — approve, reject, delete — is a human session, always.

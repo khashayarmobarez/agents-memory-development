@@ -244,6 +244,33 @@ It requires the app to be running, and it needs a **new Hermes session** before
 the tools appear (they show up as `mcp_memory_search`, `mcp_memory_propose`,
 `mcp_memory_getProjectContext`).
 
+### Remote MCP for claude.ai (OAuth)
+
+claude.ai connectors take a remote MCP URL, not a stdio command. The app serves the
+same four tools at `https://<app>/api/mcp`, guarded by OAuth 2.1 (PKCE, dynamic client
+registration). Add it at **Customize → Connectors → Add custom connector** with that
+URL; claude.ai discovers the rest, sends you to `/login` if you have no session, and
+shows a consent screen.
+
+```
+/.well-known/oauth-protected-resource   -> where to authenticate
+/.well-known/oauth-authorization-server -> endpoints
+/api/oauth/register                     -> dynamic client registration
+/oauth/authorize  (+ /api/oauth/decide) -> owner login + consent
+/api/oauth/token                        -> code / refresh exchange
+/api/mcp                                -> the tools, Bearer access token
+```
+
+Nothing is stored: client ids, codes and tokens are signed with `APP_SECRET`
+(`lib/oauth.ts`), one derived key per kind, so a session cookie or a refresh token
+can't be replayed as an access token. Access tokens last 1 hour, refresh tokens 30
+days. **Rotating `APP_SECRET` revokes every connector and every session at once.**
+An OAuth token only opens `/api/mcp` (read + propose) — never the REST API or the
+desk. Set `PUBLIC_URL` if a proxy hides the real host.
+
+Because tokens are stateless, an authorization code is not strictly single-use; its
+60-second life and PKCE bound the exposure.
+
 ## Deploying to Vercel
 
 1. Import the repo in Vercel (root = repo root); set for Production and Preview:
